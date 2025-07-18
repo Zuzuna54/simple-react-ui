@@ -3,18 +3,22 @@ import type {
   VisualizationNode, 
   VisualizationEdge, 
   ConversationThread, 
-  HierarchicalData 
+  HierarchicalData,
+  FilterState
 } from '../types';
 
-export function processHierarchicalData(data: GraphData): HierarchicalData {
+export function processHierarchicalData(data: GraphData, filters?: Partial<FilterState>): HierarchicalData {
   // Convert raw data to visualization format
   const nodes = convertToVisualizationNodes(data);
   const edges = convertToVisualizationEdges(data);
   
-  // Find or create channel root
-  const channelRoot = findOrCreateChannelRoot(nodes, data);
+  // Create unique user nodes from message authors
+  const users = createUserNodes(data);
   
-  // Group messages into conversation threads
+  // Create user-to-message edges (apply filtering if provided)
+  const userMessageEdges = createUserMessageEdges(data, users, filters);
+  
+  // Group messages into conversation threads with participant tracking
   const threads = buildConversationThreads(nodes, edges);
   
   // Separate noise nodes
@@ -22,50 +26,168 @@ export function processHierarchicalData(data: GraphData): HierarchicalData {
     node.type === 'message' && node.data.messageType === 'noise'
   );
   
+  // Filter user nodes based on whether they have visible messages
+  const visibleMessageIds = new Set(nodes.map(n => n.id));
+  const filteredUsers = users.filter(user => {
+    if (!user.metadata.userMessageIds) return false;
+    
+    // Keep user if they have at least one visible message
+    return user.metadata.userMessageIds.some(messageId => visibleMessageIds.has(messageId));
+  });
+  
+  // Combine all edges, applying edge type filters
+  const allEdges = [...edges];
+  if (!filters || filters.showUserMessageEdges !== false) {
+    allEdges.push(...userMessageEdges);
+  }
+  
   return {
-    channelRoot,
+    users: filteredUsers,
     threads,
-    nodes,
-    edges,
-    noiseNodes
+    nodes: [...nodes, ...filteredUsers], // Combine message nodes and filtered user nodes
+    edges: allEdges,
+    noiseNodes,
+    userMessageEdges
   };
 }
 
 function convertToVisualizationNodes(data: GraphData): VisualizationNode[] {
-  return data.nodes.map(node => {
-    const isChannel = node.id.includes('channel');
-    const isContextual = node.data.is_contextual;
-    
-    // Calculate metadata
-    const replyCount = data.edges.filter(edge => 
-      edge.source === node.id && edge.data.edge_type === 'reply_to'
-    ).length;
-    
-    const semanticConnections = data.edges.filter(edge => 
-      (edge.source === node.id || edge.target === node.id) && 
-      edge.data.edge_type === 'semantic_link'
-    ).length;
-    
-    const importance = isChannel ? 3 : (isContextual ? 2 : 1);
+  return data.nodes
+    .filter(node => node.type === 'message') // Only process message nodes, skip any legacy channel nodes
+    .map(node => {
+      const isContextual = node.data.is_contextual;
+      
+      // Calculate metadata for message nodes
+      const replyCount = data.edges.filter(edge => 
+        edge.source === node.id && edge.data.edge_type === 'reply_to'
+      ).length;
+      
+      const semanticConnections = data.edges.filter(edge => 
+        (edge.source === node.id || edge.target === node.id) && 
+        edge.data.edge_type === 'semantic_link'
+      ).length;
+      
+      const importance = isContextual ? 2 : 1;
+      
+      return {
+        id: node.id,
+        type: 'message' as const,
+        data: {
+          content: node.data.content || '',
+          author: node.data.author_name || 'Unknown',
+          timestamp: node.data.written_at ? new Date(node.data.written_at).getTime() : Date.now(),
+          messageType: isContextual ? 'contextual' : 'noise',
+          embedding: undefined // TODO: Add if available in future
+        },
+        position: { x: 0, y: 0 }, // Will be calculated by layout
+        metadata: {
+          replyCount,
+          semanticConnections,
+          importance
+        }
+      };
+    });
+}
+
+function createUserNodes(data: GraphData): VisualizationNode[] {
+  // Get unique authors from all messages
+  const authorMap = new Map<string, {
+    messageIds: string[];
+    messageCount: number;
+    firstMessageTime: number;
+    lastMessageTime: number;
+    contextualCount: number;
+    noiseCount: number;
+  }>();
+  
+  data.nodes
+    .filter(node => node.type === 'message' && node.data.author_name)
+    .forEach(node => {
+      const author = node.data.author_name!;
+      const messageTime = node.data.written_at ? new Date(node.data.written_at).getTime() : Date.now();
+      const isContextual = node.data.is_contextual;
+      
+      if (!authorMap.has(author)) {
+        authorMap.set(author, {
+          messageIds: [],
+          messageCount: 0,
+          firstMessageTime: messageTime,
+          lastMessageTime: messageTime,
+          contextualCount: 0,
+          noiseCount: 0
+        });
+      }
+      
+      const authorData = authorMap.get(author)!;
+      authorData.messageIds.push(node.id);
+      authorData.messageCount++;
+      authorData.firstMessageTime = Math.min(authorData.firstMessageTime, messageTime);
+      authorData.lastMessageTime = Math.max(authorData.lastMessageTime, messageTime);
+      
+      if (isContextual) {
+        authorData.contextualCount++;
+      } else {
+        authorData.noiseCount++;
+      }
+    });
+  
+  // Create user nodes
+  return Array.from(authorMap.entries()).map(([author, authorData]) => {
+    // Calculate user importance based on message count and contextual ratio
+    const contextualRatio = authorData.contextualCount / authorData.messageCount;
+    const importance = Math.min(3, Math.floor(authorData.messageCount / 5) + (contextualRatio > 0.5 ? 1 : 0));
     
     return {
-      id: node.id,
-      type: isChannel ? 'channel' : 'message',
+      id: `user-${author}`,
+      type: 'user' as const,
       data: {
-        content: node.data.content || '',
-        author: node.data.author_name || 'System',
-        timestamp: node.data.written_at ? new Date(node.data.written_at).getTime() : Date.now(),
-        messageType: isContextual ? 'contextual' : 'noise',
-        embedding: undefined // TODO: Add if available in future
+        content: `${author} (${authorData.messageCount} messages)`,
+        author: author,
+        timestamp: authorData.firstMessageTime,
+        messageType: 'contextual' as const, // Users are always considered contextual
+        userHandle: author,
+        messageCount: authorData.messageCount
       },
-      position: { x: 0, y: 0 }, // Will be calculated by layout
+      position: { x: 0, y: 0 },
       metadata: {
-        replyCount,
-        semanticConnections,
-        importance
+        replyCount: 0, // Users don't reply directly
+        semanticConnections: 0, // Will be calculated separately if needed
+        importance,
+        userMessageIds: authorData.messageIds
       }
     };
   });
+}
+
+function createUserMessageEdges(
+  data: GraphData, 
+  users: VisualizationNode[], 
+  filters?: Partial<FilterState>
+): VisualizationEdge[] {
+  // Skip creating user-message edges if they're filtered out
+  if (filters && filters.showUserMessageEdges === false) {
+    return [];
+  }
+  
+  const userMessageEdges: VisualizationEdge[] = [];
+  
+  // Create edges from users to their messages
+  users.forEach(user => {
+    if (user.metadata.userMessageIds) {
+      user.metadata.userMessageIds.forEach(messageId => {
+        userMessageEdges.push({
+          id: `user-message-${user.id}-${messageId}`,
+          source: user.id,
+          target: messageId,
+          type: 'user_message',
+          strength: 1.0, // Strong connection between user and their message
+          metadata: {}
+        });
+      });
+    }
+  });
+  
+  return userMessageEdges;
 }
 
 function convertToVisualizationEdges(data: GraphData): VisualizationEdge[] {
@@ -80,32 +202,6 @@ function convertToVisualizationEdges(data: GraphData): VisualizationEdge[] {
       distance: undefined  // TODO: Add when distance data is available
     }
   }));
-}
-
-function findOrCreateChannelRoot(nodes: VisualizationNode[], data: GraphData): VisualizationNode {
-  // Try to find existing channel node
-  const existingChannel = nodes.find(node => node.type === 'channel');
-  if (existingChannel) {
-    return existingChannel;
-  }
-  
-  // Create a virtual channel root if none exists
-  return {
-    id: 'channel-root',
-    type: 'channel',
-    data: {
-      content: `Channel (${nodes.length} messages)`,
-      author: 'System',
-      timestamp: Date.now(),
-      messageType: 'contextual',
-    },
-    position: { x: 0, y: 0 },
-    metadata: {
-      replyCount: 0,
-      semanticConnections: 0,
-      importance: 3
-    }
-  };
 }
 
 function buildConversationThreads(
@@ -134,9 +230,8 @@ function buildConversationThreads(
   });
   
   // Find root messages (messages with no parent)
-  const rootMessages = nodes.filter(node => 
-    node.type === 'message' && !parentMap.has(node.id)
-  );
+  const messageNodes = nodes.filter(node => node.type === 'message');
+  const rootMessages = messageNodes.filter(node => !parentMap.has(node.id));
   
   // Build threads starting from root messages
   rootMessages.forEach((rootMessage, index) => {
@@ -153,8 +248,11 @@ function buildConversationThreads(
       )
       .map(edge => edge.id);
     
-    // Determine if this is a noise thread (all messages are noise)
+    // Find participants (unique authors in this thread)
     const threadNodes = nodes.filter(node => threadMessages.includes(node.id));
+    const participants = [...new Set(threadNodes.map(node => node.data.author))];
+    
+    // Determine if this is a noise thread (all messages are noise)
     const isNoiseThread = threadNodes.every(node => node.data.messageType === 'noise');
     
     threads.push({
@@ -162,6 +260,7 @@ function buildConversationThreads(
       rootMessageId: rootMessage.id,
       messages: threadMessages,
       semanticLinks,
+      participants,
       timestamp: rootMessage.data.timestamp,
       isNoiseThread
     });

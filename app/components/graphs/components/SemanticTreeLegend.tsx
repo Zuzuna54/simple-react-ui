@@ -26,8 +26,8 @@ export function SemanticTreeLegend() {
             </h4>
             <div className="space-y-2.5">
               <div className="flex items-center gap-3 text-sm">
-                <div className="w-5 h-5 rounded-lg bg-purple-500 border-2 border-purple-300/30 shadow-sm"></div>
-                <span className="text-slate-200 font-medium">Channel Root</span>
+                <div className="w-6 h-6 rounded-full bg-indigo-500 border-2 border-indigo-300/30 shadow-sm"></div>
+                <span className="text-slate-200 font-medium">User</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <div className="w-4 h-4 rounded-lg bg-green-500 border-2 border-green-300/30 shadow-sm"></div>
@@ -45,6 +45,10 @@ export function SemanticTreeLegend() {
               Edge Types
             </h4>
             <div className="space-y-2.5">
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-10 h-0.5 bg-indigo-500 rounded-full shadow-sm"></div>
+                <span className="text-slate-200 font-medium">User-Message</span>
+              </div>
               <div className="flex items-center gap-3 text-sm">
                 <div className="w-10 h-0.5 bg-blue-500 rounded-full shadow-sm"></div>
                 <span className="text-slate-200 font-medium">Reply Chain</span>

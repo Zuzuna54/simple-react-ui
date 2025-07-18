@@ -3,6 +3,7 @@ export interface FilterState {
   showNoise: boolean;
   showReplyEdges: boolean;
   showSemanticEdges: boolean;
+  showUserMessageEdges: boolean; // New: show user-to-message connections
   semanticThreshold: number;
   authorFilter: string[];
   contentSearch: string;
@@ -22,19 +23,24 @@ export interface SemanticTreeGraphProps {
 // Design-compliant data structures
 export interface VisualizationNode {
   id: string;
-  type: 'message' | 'channel' | 'thread';
+  type: 'message' | 'user'; // Changed: removed 'channel', added 'user'
   data: {
     content: string;
     author: string;
     timestamp: number;
     messageType: 'contextual' | 'noise';
     embedding?: number[];
+    // User-specific data
+    messageCount?: number; // For user nodes: how many messages they have
+    userHandle?: string; // For user nodes: their handle/name
   };
   position: { x: number; y: number };
   metadata: {
     replyCount: number;
     semanticConnections: number;
     importance: number;
+    // User-specific metadata
+    userMessageIds?: string[]; // For user nodes: IDs of their messages
   };
 }
 
@@ -42,7 +48,7 @@ export interface VisualizationEdge {
   id: string;
   source: string;
   target: string;
-  type: 'reply' | 'semantic';
+  type: 'reply' | 'semantic' | 'user_message'; // Added 'user_message' for user-to-message connections
   strength: number;
   metadata: {
     timestamp?: number;
@@ -50,22 +56,24 @@ export interface VisualizationEdge {
   };
 }
 
-// Thread organization structure
+// Thread organization structure - updated for user-centric approach
 export interface ConversationThread {
   id: string;
   rootMessageId: string;
   messages: string[]; // message IDs in thread
   semanticLinks: string[]; // edge IDs for semantic connections
+  participants: string[]; // user IDs who participated in thread
   timestamp: number;
   isNoiseThread: boolean;
 }
 
 export interface HierarchicalData {
-  channelRoot: VisualizationNode;
+  users: VisualizationNode[]; // Changed: users instead of channelRoot
   threads: ConversationThread[];
   nodes: VisualizationNode[];
   edges: VisualizationEdge[];
   noiseNodes: VisualizationNode[];
+  userMessageEdges: VisualizationEdge[]; // New: user-to-message edges
 }
 
 // Legacy transformed data for G6 compatibility
@@ -82,12 +90,15 @@ export interface TransformedNode {
     nodeColor: string;
     borderColor: string;
     importance: number;
-    // New design-compliant fields
+    // Design-compliant fields
     width: number;
     height: number;
-    shape: 'rect' | 'hexagon';
+    shape: 'rect' | 'hexagon' | 'circle'; // Added 'circle' for user nodes
     replyCount: number;
     semanticConnections: number;
+    // User-specific fields
+    messageCount?: number;
+    userHandle?: string;
   };
 }
 

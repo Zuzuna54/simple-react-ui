@@ -161,7 +161,7 @@ export function SemanticTreeGraph({
         // Wait a tick to ensure DOM is cleaned
         await new Promise(resolve => setTimeout(resolve, 50));
 
-        const transformedData = transformDataForG6(filteredData);
+        const transformedData = transformDataForG6(filteredData, filters);
         
         logger.info('Creating enhanced semantic tree with G6', { 
           transformedNodes: transformedData.nodes.length, 
@@ -179,9 +179,18 @@ export function SemanticTreeGraph({
           layout: getPhysicsConfig(layoutType),
           node: {
             style: {
-              // Use design-compliant rectangular shapes
+              // Use design-compliant shapes: circles for users, rectangles for messages
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              size: (d: any) => [d.data?.width || 120, d.data?.height || 60],
+              size: (d: any) => {
+                // Handle different node shapes
+                if (d.data?.shape === 'circle') {
+                  // User nodes: circular with single dimension
+                  return d.data?.width || 80;
+                } else {
+                  // Message nodes: rectangular with width and height
+                  return [d.data?.width || 120, d.data?.height || 60];
+                }
+              },
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               fill: (d: any) => d.data?.nodeColor || '#4CAF50',
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,19 +199,39 @@ export function SemanticTreeGraph({
               // Enhanced label styling for rich content
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               labelText: (d: any) => {
-                if (d.data?.nodeType === 'channel') {
-                  return d.data?.fullContent || d.id;
+                if (d.data?.nodeType === 'user') {
+                  // User nodes: show handle and message count
+                  const handle = d.data?.userHandle || d.data?.author || 'User';
+                  const messageCount = d.data?.messageCount || 0;
+                  return `${handle}\n(${messageCount} messages)`;
+                } else if (d.data?.nodeType === 'message') {
+                  // Message nodes: show author and content preview
+                  return `@${d.data?.author || 'User'}\n${(d.data?.fullContent || '').substring(0, 50)}${(d.data?.fullContent || '').length > 50 ? '...' : ''}`;
                 }
-                return `@${d.data?.author || 'User'}\n${(d.data?.fullContent || '').substring(0, 50)}${(d.data?.fullContent || '').length > 50 ? '...' : ''}`;
+                return d.data?.label || d.id;
               },
               labelFill: '#f9fafb',
               labelFontSize: 10,
               labelFontWeight: 'normal',
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              labelMaxWidth: (d: any) => (d.data?.width || 120) - 20,
+              labelMaxWidth: (d: any) => {
+                if (d.data?.shape === 'circle') {
+                  // User nodes: label width based on circle diameter
+                  return (d.data?.width || 80) - 10;
+                } else {
+                  // Message nodes: label width based on rectangle width
+                  return (d.data?.width || 120) - 20;
+                }
+              },
               labelWordWrap: true,
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              labelWordWrapWidth: (d: any) => (d.data?.width || 120) - 20,
+              labelWordWrapWidth: (d: any) => {
+                if (d.data?.shape === 'circle') {
+                  return (d.data?.width || 80) - 10;
+                } else {
+                  return (d.data?.width || 120) - 20;
+                }
+              },
               radius: 8,
               // Animation properties
               opacity: 1,

@@ -223,6 +223,19 @@ export function SemanticTreeControlPanel({
             <label className="group flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-slate-800/60 border border-transparent hover:border-slate-600/30">
               <input
                 type="checkbox"
+                checked={filters.showUserMessageEdges}
+                onChange={(e) => updateFilters({ showUserMessageEdges: e.target.checked })}
+                className="w-4 h-4 text-indigo-500 bg-slate-700 border-slate-600 rounded focus:ring-indigo-500 focus:ring-2 focus:ring-offset-0"
+              />
+              <div className="w-8 h-0.5 bg-indigo-500 rounded-full shadow-sm"></div>
+              <span className="text-sm font-medium text-slate-200 group-hover:text-white transition-colors flex-1">
+                User-Message Links
+              </span>
+            </label>
+            
+            <label className="group flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-slate-800/60 border border-transparent hover:border-slate-600/30">
+              <input
+                type="checkbox"
                 checked={filters.showReplyEdges}
                 onChange={(e) => updateFilters({ showReplyEdges: e.target.checked })}
                 className="w-4 h-4 text-blue-500 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2 focus:ring-offset-0"

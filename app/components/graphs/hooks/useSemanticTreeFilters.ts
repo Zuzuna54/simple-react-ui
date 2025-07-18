@@ -8,6 +8,7 @@ export function useSemanticTreeFilters(data: GraphData) {
     showNoise: true,
     showReplyEdges: true,
     showSemanticEdges: true,
+    showUserMessageEdges: true, // New: show user-to-message connections
     semanticThreshold: 0.5,
     authorFilter: [],
     contentSearch: '',
@@ -31,47 +32,61 @@ export function useSemanticTreeFilters(data: GraphData) {
   // Filter and transform data based on current filters
   const filteredData = useMemo(() => {
     const filteredNodes = data.nodes.filter(node => {
-      // Filter by message type
-      if (!filters.showContextual && node.data.is_contextual) return false;
-      if (!filters.showNoise && !node.data.is_contextual) return false;
+      // Skip legacy channel nodes (if any exist)
+      if (node.type === 'channel') return false;
       
-      // Filter by author
-      if (filters.authorFilter.length > 0 && node.data.author_name) {
-        if (!filters.authorFilter.includes(node.data.author_name)) return false;
-      }
-      
-      // Filter by content search (case-insensitive, partial match)
-      if (filters.contentSearch && node.data.content) {
-        const searchTerm = filters.contentSearch.toLowerCase();
-        const content = node.data.content.toLowerCase();
-        const author = (node.data.author_name || '').toLowerCase();
+      // Handle message nodes
+      if (node.type === 'message') {
+        // Filter by message type
+        if (!filters.showContextual && node.data.is_contextual) return false;
+        if (!filters.showNoise && !node.data.is_contextual) return false;
         
-        // Search in content or author name
-        if (!content.includes(searchTerm) && !author.includes(searchTerm)) {
-          return false;
+        // Filter by author
+        if (filters.authorFilter.length > 0 && node.data.author_name) {
+          if (!filters.authorFilter.includes(node.data.author_name)) return false;
         }
-      }
-      
-      // Filter by date range
-      if (filters.dateRange.start || filters.dateRange.end) {
-        if (node.data.written_at) {
-          const nodeDate = new Date(node.data.written_at);
+        
+        // Filter by content search (case-insensitive, partial match)
+        if (filters.contentSearch && node.data.content) {
+          const searchTerm = filters.contentSearch.toLowerCase();
+          const content = node.data.content.toLowerCase();
+          const author = (node.data.author_name || '').toLowerCase();
           
-          if (filters.dateRange.start) {
-            const startDate = new Date(filters.dateRange.start);
-            if (nodeDate < startDate) return false;
-          }
-          
-          if (filters.dateRange.end) {
-            const endDate = new Date(filters.dateRange.end);
-            // Set end date to end of day
-            endDate.setHours(23, 59, 59, 999);
-            if (nodeDate > endDate) return false;
+          // Search in content or author name
+          if (!content.includes(searchTerm) && !author.includes(searchTerm)) {
+            return false;
           }
         }
+        
+        // Filter by date range
+        if (filters.dateRange.start || filters.dateRange.end) {
+          if (node.data.written_at) {
+            const nodeDate = new Date(node.data.written_at);
+            
+            if (filters.dateRange.start) {
+              const startDate = new Date(filters.dateRange.start);
+              if (nodeDate < startDate) return false;
+            }
+            
+            if (filters.dateRange.end) {
+              const endDate = new Date(filters.dateRange.end);
+              // Set end date to end of day
+              endDate.setHours(23, 59, 59, 999);
+              if (nodeDate > endDate) return false;
+            }
+          }
+        }
+        
+        return true;
       }
       
-      return true;
+      // Handle user nodes (these will be created by hierarchical processor)
+      // User nodes are included if:
+      // 1. They match author filter (if applied)
+      // 2. They match content search (if applied)
+      // 3. They have at least one message that passes the filters
+      
+      return true; // User nodes will be handled by the hierarchical processor
     });
 
     const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
@@ -119,6 +134,7 @@ export function useSemanticTreeFilters(data: GraphData) {
       showNoise: true,
       showReplyEdges: true,
       showSemanticEdges: true,
+      showUserMessageEdges: true,
       semanticThreshold: 0.5,
       authorFilter: [],
       contentSearch: '',

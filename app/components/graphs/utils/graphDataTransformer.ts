@@ -1,65 +1,125 @@
 import type { GraphData } from '@/app/types';
-import type { TransformedGraphData, HierarchicalData } from '../types';
+import type { TransformedGraphData, HierarchicalData, FilterState } from '../types';
 import { processHierarchicalData } from './hierarchicalProcessor';
 
-export function transformDataForG6(filteredData: GraphData): TransformedGraphData {
-  // First process data into hierarchical structure
-  const hierarchicalData = processHierarchicalData(filteredData);
+export function transformDataForG6(filteredData: GraphData, filters?: Partial<FilterState>): TransformedGraphData {
+  // First process data into hierarchical structure with filter support
+  const hierarchicalData = processHierarchicalData(filteredData, filters);
   
   // Transform nodes with design-compliant styling
   const nodes = hierarchicalData.nodes.map(node => {
-    const isChannel = node.type === 'channel';
+    const isUser = node.type === 'user';
+    const isMessage = node.type === 'message';
     const isContextual = node.data.messageType === 'contextual';
-    const contentLength = node.data.content?.length || 0;
     
-    // Design-compliant sizing: 120-300px width, 60-120px height
-    const baseWidth = Math.min(Math.max(120, contentLength * 2), 300);
-    const baseHeight = Math.min(Math.max(60, contentLength / 3), 120);
-    
-    // Channel nodes get special sizing and shape
-    const width = isChannel ? 200 : baseWidth;
-    const height = isChannel ? 100 : baseHeight;
-    const shape: 'rect' | 'hexagon' = isChannel ? 'hexagon' : 'rect';
-    
-    // Enhanced node sizing based on importance and content
-    const nodeSize = isChannel ? 60 : Math.min(Math.max(30, contentLength / 3), 50);
-    const nodeColor = isChannel ? '#7c3aed' : (isContextual ? '#4CAF50' : '#FFC107');
-    const borderColor = isChannel ? '#5b21b7' : (isContextual ? '#2E7D32' : '#F57F17');
-    
-    // Create rich content label with author and timestamp
-    const createRichLabel = () => {
-      if (isChannel) {
-        return node.data.content;
-      }
+    if (isUser) {
+      // User node styling
+      const messageCount = node.data.messageCount || 0;
       
-      const authorLine = `@${node.data.author}`;
-      const contentPreview = node.data.content.length > 50 
-        ? node.data.content.substring(0, 50) + '...' 
-        : node.data.content;
-      const timestamp = new Date(node.data.timestamp).toLocaleTimeString();
+      // User nodes get circular shape and size based on message count
+      const baseSize = Math.min(Math.max(80, messageCount * 8), 150);
+      const width = baseSize;
+      const height = baseSize;
+      const shape = 'circle' as const;
       
-      return `${authorLine}\n${contentPreview}\n${timestamp}`;
-    };
+      // User color coding based on importance/activity
+      const nodeColor = '#6366f1'; // Indigo for users
+      const borderColor = '#4338ca'; // Darker indigo border
+      
+      return {
+        id: node.id,
+        data: {
+          label: node.data.userHandle || node.data.author,
+          fullContent: node.data.content || '',
+          author: node.data.author || 'Unknown',
+          timestamp: new Date(node.data.timestamp).toLocaleString(),
+          nodeType: node.type,
+          messageType: node.data.messageType,
+          nodeSize: Math.min(Math.max(40, messageCount * 2), 80),
+          nodeColor,
+          borderColor,
+          importance: node.metadata.importance,
+          // Design-compliant fields
+          width,
+          height,
+          shape,
+          replyCount: node.metadata.replyCount,
+          semanticConnections: node.metadata.semanticConnections,
+          // User-specific fields
+          messageCount,
+          userHandle: node.data.userHandle
+        }
+      };
+    } else if (isMessage) {
+      // Message node styling (existing logic)
+      const contentLength = node.data.content?.length || 0;
+      
+      // Design-compliant sizing: 120-300px width, 60-120px height
+      const baseWidth = Math.min(Math.max(120, contentLength * 2), 300);
+      const baseHeight = Math.min(Math.max(60, contentLength / 3), 120);
+      
+      const width = baseWidth;
+      const height = baseHeight;
+      const shape = 'rect' as const;
+      
+      // Enhanced node sizing based on importance and content
+      const nodeSize = Math.min(Math.max(30, contentLength / 3), 50);
+      const nodeColor = isContextual ? '#4CAF50' : '#FFC107';
+      const borderColor = isContextual ? '#2E7D32' : '#F57F17';
+      
+      // Create rich content label with author and timestamp
+      const createRichLabel = () => {
+        const authorLine = `@${node.data.author}`;
+        const contentPreview = node.data.content.length > 50 
+          ? node.data.content.substring(0, 50) + '...' 
+          : node.data.content;
+        const timestamp = new Date(node.data.timestamp).toLocaleTimeString();
+        
+        return `${authorLine}\n${contentPreview}\n${timestamp}`;
+      };
+      
+      return {
+        id: node.id,
+        data: {
+          label: createRichLabel(),
+          fullContent: node.data.content || '',
+          author: node.data.author || 'Unknown',
+          timestamp: new Date(node.data.timestamp).toLocaleString(),
+          nodeType: node.type,
+          messageType: node.data.messageType,
+          nodeSize,
+          nodeColor,
+          borderColor,
+          importance: node.metadata.importance,
+          // Design-compliant fields
+          width,
+          height,
+          shape,
+          replyCount: node.metadata.replyCount,
+          semanticConnections: node.metadata.semanticConnections
+        }
+      };
+    }
     
+    // Fallback (should not happen)
     return {
       id: node.id,
       data: {
-        label: createRichLabel(),
+        label: node.data.content || node.id,
         fullContent: node.data.content || '',
-        author: node.data.author || 'System',
+        author: node.data.author || 'Unknown',
         timestamp: new Date(node.data.timestamp).toLocaleString(),
         nodeType: node.type,
         messageType: node.data.messageType,
-        nodeSize,
-        nodeColor,
-        borderColor,
-        importance: node.metadata.importance,
-        // Design-compliant fields
-        width,
-        height,
-        shape,
-        replyCount: node.metadata.replyCount,
-        semanticConnections: node.metadata.semanticConnections
+        nodeSize: 30,
+        nodeColor: '#gray',
+        borderColor: '#darkgray',
+        importance: 1,
+        width: 120,
+        height: 60,
+        shape: 'rect' as const,
+        replyCount: 0,
+        semanticConnections: 0
       }
     };
   });
@@ -67,6 +127,44 @@ export function transformDataForG6(filteredData: GraphData): TransformedGraphDat
   // Transform edges with enhanced styling
   const edges = hierarchicalData.edges.map(edge => {
     const isSemanticLink = edge.type === 'semantic';
+    const isUserMessage = edge.type === 'user_message';
+    const isReply = edge.type === 'reply';
+    
+    let strokeColor: string;
+    let strokeWidth: number;
+    let opacity: number;
+    let isDashed: boolean;
+    let isCurved: boolean;
+    
+    if (isUserMessage) {
+      // User-to-message edges: distinct styling
+      strokeColor = '#6366f1'; // Indigo to match user nodes
+      strokeWidth = 2;
+      opacity = 0.7;
+      isDashed = false;
+      isCurved = false;
+    } else if (isSemanticLink) {
+      // Semantic links: purple, dashed, curved
+      strokeColor = '#9C27B0';
+      strokeWidth = Math.max(2, edge.strength * 4);
+      opacity = Math.max(0.4, edge.strength);
+      isDashed = true;
+      isCurved = true;
+    } else if (isReply) {
+      // Reply chains: blue, solid, straight
+      strokeColor = '#2196F3';
+      strokeWidth = 3;
+      opacity = 0.9;
+      isDashed = false;
+      isCurved = false;
+    } else {
+      // Fallback
+      strokeColor = '#gray';
+      strokeWidth = 2;
+      opacity = 0.5;
+      isDashed = false;
+      isCurved = false;
+    }
     
     return {
       id: edge.id,
@@ -75,13 +173,11 @@ export function transformDataForG6(filteredData: GraphData): TransformedGraphDat
       data: {
         edgeType: edge.type,
         strength: edge.strength,
-        strokeColor: isSemanticLink ? '#9C27B0' : '#2196F3',
-        strokeWidth: isSemanticLink ? 
-          Math.max(2, edge.strength * 4) : 3,
-        opacity: isSemanticLink ? 
-          Math.max(0.4, edge.strength) : 0.9,
-        isDashed: isSemanticLink,
-        isCurved: isSemanticLink // Semantic links should be curved
+        strokeColor,
+        strokeWidth,
+        opacity,
+        isDashed,
+        isCurved
       }
     };
   });
