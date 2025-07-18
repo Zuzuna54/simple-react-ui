@@ -43,6 +43,84 @@ export function SemanticTreeGraph({
     return hash;
   }, [data.nodes, data.edges, filters, layoutType]);
 
+  // Configure physics parameters based on layout type
+  const getPhysicsConfig = useCallback((type: LayoutType) => {
+    switch (type) {
+      case 'force':
+        return {
+          type: 'd3-force',
+          link: {
+            distance: 150,
+            strength: 0.6
+          },
+          charge: {
+            strength: -300,
+            distanceMax: 400
+          },
+          center: {
+            x: width / 2,
+            y: height / 2,
+            strength: 0.1
+          },
+          collide: {
+            radius: 40,
+            strength: 0.8
+          },
+          forceX: {
+            strength: 0.05,
+            x: width / 2
+          },
+          forceY: {
+            strength: 0.05,
+            y: height / 2
+          },
+          alpha: 0.3,
+          alphaDecay: 0.028,
+          alphaMin: 0.001,
+          velocityDecay: 0.4
+        };
+      case 'radial':
+        return {
+          type: 'radial',
+          center: [width / 2, height / 2],
+          radius: Math.min(width, height) / 3,
+          nodeSize: 30,
+          preventOverlap: true,
+          sortBy: 'importance'
+        };
+      default: // tree
+        return {
+          type: 'dagre',
+          rankdir: 'TB',
+          nodesep: 60,
+          ranksep: 100,
+          preventOverlap: true,
+          nodeSize: 50
+        };
+    }
+  }, [width, height]);
+
+  // Configure behaviors based on layout type
+  const getBehaviors = useCallback((type: LayoutType) => {
+    if (type === 'force') {
+      // Add physics-based dragging for force layout
+      return [
+        'zoom-canvas',
+        'drag-canvas',
+        'hover-activate',
+        'drag-element-force'
+      ];
+    } else {
+      // Add regular dragging for other layouts
+      return [
+        'zoom-canvas',
+        'drag-canvas', 
+        'hover-activate',
+        'drag-element'
+      ];
+    }
+  }, []);
+
   // Initialize or update graph with proper G6 v5 configuration
   useEffect(() => {
     if (!containerRef.current || initializingRef.current) return;
@@ -90,7 +168,7 @@ export function SemanticTreeGraph({
           transformedEdges: transformedData.edges.length 
         });
 
-        // Enhanced G6 configuration with improved node styling
+        // Enhanced G6 configuration with physics and animations
         const graph = new Graph({
           container: containerRef.current!,
           width,
@@ -98,16 +176,7 @@ export function SemanticTreeGraph({
           background: 'transparent',
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           data: transformedData as any,
-          layout: {
-            type: layoutType === 'tree' ? 'dagre' : layoutType,
-            rankdir: layoutType === 'tree' ? 'TB' : undefined,
-            nodesep: 50,
-            ranksep: 80,
-            preventOverlap: true,
-            nodeSize: 50,
-            linkDistance: layoutType === 'force' ? 150 : undefined,
-            center: layoutType === 'radial' ? [width / 2, height / 2] : undefined
-          },
+          layout: getPhysicsConfig(layoutType),
           node: {
             style: {
               // Use design-compliant rectangular shapes
@@ -134,7 +203,31 @@ export function SemanticTreeGraph({
               labelWordWrap: true,
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               labelWordWrapWidth: (d: any) => (d.data?.width || 120) - 20,
-              radius: 8
+              radius: 8,
+              // Animation properties
+              opacity: 1,
+              shadowColor: 'rgba(0, 0, 0, 0.1)',
+              shadowBlur: 4,
+              shadowOffsetX: 2,
+              shadowOffsetY: 2
+            },
+            state: {
+              hover: {
+                fill: '#ffffff',
+                stroke: '#8b5cf6',
+                strokeWidth: 3,
+                shadowColor: 'rgba(139, 92, 246, 0.3)',
+                shadowBlur: 10,
+                transform: 'scale(1.05)'
+              },
+              selected: {
+                fill: '#8b5cf6',
+                stroke: '#ffffff',
+                strokeWidth: 4,
+                shadowColor: 'rgba(139, 92, 246, 0.5)',
+                shadowBlur: 15,
+                transform: 'scale(1.1)'
+              }
             }
           },
           edge: {
@@ -147,29 +240,96 @@ export function SemanticTreeGraph({
               strokeOpacity: (d: any) => d.data?.opacity || 0.8,
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               lineDash: (d: any) => d.data?.isDashed ? [5, 5] : undefined,
-              // TODO: Add curve support for semantic links
+              // Enhanced curve support for semantic links
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              curveConfig: (d: any) => d.data?.isCurved ? { curveOffset: 20 } : undefined
+              curveOffset: (d: any) => d.data?.isCurved ? 20 : 0,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              endArrow: (d: any) => d.data?.isDashed ? false : true
+            },
+            state: {
+              hover: {
+                strokeWidth: 4,
+                strokeOpacity: 1,
+                shadowColor: 'rgba(33, 150, 243, 0.3)',
+                shadowBlur: 8
+              }
             }
           },
-          behaviors: ['zoom-canvas', 'drag-canvas'],
+          behaviors: getBehaviors(layoutType),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          animation: true as any, // Simplified animation config for G6 v5 compatibility
+          // Auto-fit configuration
+          autoFit: 'view'
         });
 
-        // Enhanced event handling
+        // Enhanced event handling with animations
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         graph.on('node:click', (evt: any) => {
           const nodeId = evt.itemId || evt.item?.id;
-          setSelectedNode(nodeId || null);
-          logger.info('Node selected in semantic tree', { nodeId });
+          
+          // Clear previous selection
+          if (selectedNode && selectedNode !== nodeId) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (graph as any).setItemState?.(selectedNode, 'selected', false);
+          }
+          
+          // Set new selection
+          if (nodeId) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (graph as any).setItemState?.(nodeId, 'selected', true);
+            setSelectedNode(nodeId);
+            logger.info('Node selected in semantic tree', { nodeId });
+          }
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        graph.on('node:mouseenter', (evt: any) => {
+          const nodeId = evt.itemId || evt.item?.id;
+          if (nodeId) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (graph as any).setItemState?.(nodeId, 'hover', true);
+          }
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        graph.on('node:mouseleave', (evt: any) => {
+          const nodeId = evt.itemId || evt.item?.id;
+          if (nodeId) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (graph as any).setItemState?.(nodeId, 'hover', false);
+          }
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        graph.on('edge:mouseenter', (evt: any) => {
+          const edgeId = evt.itemId || evt.item?.id;
+          if (edgeId) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (graph as any).setItemState?.(edgeId, 'hover', true);
+          }
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        graph.on('edge:mouseleave', (evt: any) => {
+          const edgeId = evt.itemId || evt.item?.id;
+          if (edgeId) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (graph as any).setItemState?.(edgeId, 'hover', false);
+          }
         });
 
         graph.on('canvas:click', () => {
-          setSelectedNode(null);
+          if (selectedNode) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (graph as any).setItemState?.(selectedNode, 'selected', false);
+            setSelectedNode(null);
+          }
         });
 
-        // Render with enhanced timing
+        // Render with enhanced timing and animations
         await graph.render();
         
+        // Apply initial animation and fit view
         setTimeout(() => {
           try {
             graph.fitView();
@@ -179,7 +339,7 @@ export function SemanticTreeGraph({
             logger.warn('Error fitting view', e);
             setIsLoading(false);
           }
-        }, 300);
+        }, 400);
 
         graphRef.current = graph;
         setError(null);
@@ -207,13 +367,21 @@ export function SemanticTreeGraph({
       }
       initializingRef.current = false;
     };
-  }, [dataHash, width, height, layoutType, filteredData]);
+  }, [dataHash, width, height, layoutType, filteredData, getPhysicsConfig, getBehaviors]);
 
   const resetView = useCallback(() => {
     if (graphRef.current) {
       graphRef.current.fitView();
     }
   }, []);
+
+  // Add a restart physics simulation function for force layout
+  const restartPhysics = useCallback(() => {
+    if (graphRef.current && layoutType === 'force') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (graphRef.current as any).getLayoutInstance()?.restart();
+    }
+  }, [layoutType]);
 
   if (error) {
     return (
@@ -278,6 +446,7 @@ export function SemanticTreeGraph({
         filters={filters}
         updateFilters={updateFilters}
         onResetView={resetView}
+        onRestartPhysics={restartPhysics}
         availableAuthors={availableAuthors}
         onResetAllFilters={resetAllFilters}
       />

@@ -10,6 +10,7 @@ interface SemanticTreeControlPanelProps {
   filters: FilterState;
   updateFilters: (filters: Partial<FilterState>) => void;
   onResetView: () => void;
+  onRestartPhysics: () => void;
   availableAuthors: string[];
   onResetAllFilters: () => void;
 }
@@ -21,6 +22,7 @@ export function SemanticTreeControlPanel({
   filters,
   updateFilters,
   onResetView,
+  onRestartPhysics,
   availableAuthors,
   onResetAllFilters
 }: SemanticTreeControlPanelProps) {
@@ -310,6 +312,16 @@ export function SemanticTreeControlPanel({
             <span className="text-base">🎯</span>
             Fit to View
           </button>
+          
+          {layoutType === 'force' && (
+            <button
+              onClick={onRestartPhysics}
+              className="w-full px-4 py-2 text-sm font-medium bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              <span className="text-base">⚡</span>
+              Restart Physics
+            </button>
+          )}
           
           <button
             onClick={onResetAllFilters}
