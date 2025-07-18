@@ -2,11 +2,11 @@
 
 import React, { useState, useCallback } from 'react';
 import { clsx } from 'clsx';
-import { SimpleG6Graph } from './graphs/G6Graph';
-import { LoadingState, NoDataState } from './panels/MainPanel';
-import { useGraphDataFetcher } from '@/app/hooks/useGraphStore';
+import { useGraphData } from '@/app/hooks/useGraphData';
 import type { Channel } from '@/app/types';
 import { createLogger } from '@/app/utils/logger';
+import { SemanticTreeGraph } from './graphs/SemanticTreeGraph';
+import { LoadingState, NoDataState } from './panels/MainPanel';
 
 const logger = createLogger('GraphContainer.tsx');
 
@@ -20,7 +20,7 @@ export function GraphContainer({ channel, className }: GraphContainerProps) {
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   
   // Fetch graph data for the selected channel
-  const { graphData, isLoading, error, refetch } = useGraphDataFetcher({
+  const { graphData, isLoading, error, refetch } = useGraphData({
     autoFetch: true,
     semanticThreshold: 0.5,
     limit: 1000,
@@ -171,7 +171,7 @@ export function GraphContainer({ channel, className }: GraphContainerProps) {
 
       {/* Graph Visualization */}
       <div className="flex-1 relative overflow-hidden">
-        <SimpleG6Graph
+        <SemanticTreeGraph
           data={graphData}
           width={1200} // Fixed width for now
           height={700} // Fixed height for now  
