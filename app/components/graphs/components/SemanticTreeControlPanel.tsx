@@ -10,6 +10,8 @@ interface SemanticTreeControlPanelProps {
   filters: FilterState;
   updateFilters: (filters: Partial<FilterState>) => void;
   onResetView: () => void;
+  availableAuthors: string[];
+  onResetAllFilters: () => void;
 }
 
 export function SemanticTreeControlPanel({
@@ -18,7 +20,9 @@ export function SemanticTreeControlPanel({
   setLayoutType,
   filters,
   updateFilters,
-  onResetView
+  onResetView,
+  availableAuthors,
+  onResetAllFilters
 }: SemanticTreeControlPanelProps) {
   return (
     <div 
@@ -28,7 +32,7 @@ export function SemanticTreeControlPanel({
         borderColor: 'rgba(148, 163, 184, 0.2)',
         maxHeight: height - 120,
         overflowY: 'auto',
-        width: '280px'
+        width: '320px'
       }}
     >
       <div className="p-6 space-y-6">
@@ -40,6 +44,105 @@ export function SemanticTreeControlPanel({
           <p className="text-sm text-slate-400 font-medium">
             Interactive conversation analysis
           </p>
+        </div>
+
+        {/* Content Search */}
+        <div>
+          <h3 className="text-sm font-semibold text-slate-200 mb-3 uppercase tracking-wide">
+            🔍 Search Content
+          </h3>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search messages and authors..."
+              value={filters.contentSearch}
+              onChange={(e) => updateFilters({ contentSearch: e.target.value })}
+              className="w-full px-4 py-2 bg-slate-800/60 border border-slate-600/60 rounded-xl text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors"
+            />
+            {filters.contentSearch && (
+              <button
+                onClick={() => updateFilters({ contentSearch: '' })}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Author Filter */}
+        <div>
+          <h3 className="text-sm font-semibold text-slate-200 mb-3 uppercase tracking-wide">
+            👤 Filter by Author
+          </h3>
+          <div className="space-y-2 max-h-32 overflow-y-auto">
+            {availableAuthors.map(author => (
+              <label key={author} className="group flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-slate-800/60">
+                <input
+                  type="checkbox"
+                  checked={filters.authorFilter.includes(author)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      updateFilters({ authorFilter: [...filters.authorFilter, author] });
+                    } else {
+                      updateFilters({ authorFilter: filters.authorFilter.filter(a => a !== author) });
+                    }
+                  }}
+                  className="w-4 h-4 text-blue-500 bg-slate-700 border-slate-600 rounded focus:ring-blue-500 focus:ring-2 focus:ring-offset-0"
+                />
+                <span className="text-sm text-slate-200 group-hover:text-white transition-colors flex-1">
+                  {author}
+                </span>
+              </label>
+            ))}
+          </div>
+          {filters.authorFilter.length > 0 && (
+            <button
+              onClick={() => updateFilters({ authorFilter: [] })}
+              className="mt-2 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              Clear author filter ({filters.authorFilter.length} selected)
+            </button>
+          )}
+        </div>
+
+        {/* Date Range Filter */}
+        <div>
+          <h3 className="text-sm font-semibold text-slate-200 mb-3 uppercase tracking-wide">
+            📅 Date Range
+          </h3>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">From:</label>
+              <input
+                type="date"
+                value={filters.dateRange.start || ''}
+                onChange={(e) => updateFilters({ 
+                  dateRange: { ...filters.dateRange, start: e.target.value || null }
+                })}
+                className="w-full px-3 py-2 bg-slate-800/60 border border-slate-600/60 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">To:</label>
+              <input
+                type="date"
+                value={filters.dateRange.end || ''}
+                onChange={(e) => updateFilters({ 
+                  dateRange: { ...filters.dateRange, end: e.target.value || null }
+                })}
+                className="w-full px-3 py-2 bg-slate-800/60 border border-slate-600/60 rounded-lg text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+              />
+            </div>
+            {(filters.dateRange.start || filters.dateRange.end) && (
+              <button
+                onClick={() => updateFilters({ dateRange: { start: null, end: null } })}
+                className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                Clear date filter
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Layout Controls */}
@@ -199,13 +302,20 @@ export function SemanticTreeControlPanel({
         )}
 
         {/* View Controls */}
-        <div className="pt-4 border-t border-slate-700/50">
+        <div className="pt-4 border-t border-slate-700/50 space-y-3">
           <button
             onClick={onResetView}
             className="w-full px-4 py-3 text-sm font-semibold bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
           >
             <span className="text-base">🎯</span>
             Fit to View
+          </button>
+          
+          <button
+            onClick={onResetAllFilters}
+            className="w-full px-4 py-2 text-sm font-medium bg-slate-700/60 hover:bg-slate-600/60 text-slate-200 rounded-xl transition-all duration-200 border border-slate-600/30"
+          >
+            Reset All Filters
           </button>
         </div>
       </div>

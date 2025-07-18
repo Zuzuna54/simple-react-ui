@@ -26,7 +26,13 @@ export function SemanticTreeGraph({
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [layoutType, setLayoutType] = useState<LayoutType>('tree');
 
-  const { filters, filteredData, updateFilters } = useSemanticTreeFilters(data);
+  const { 
+    filters, 
+    filteredData, 
+    updateFilters, 
+    availableAuthors, 
+    resetAllFilters 
+  } = useSemanticTreeFilters(data);
 
   const initializingRef = useRef(false);
   const lastDataHashRef = useRef<string>('');
@@ -84,7 +90,7 @@ export function SemanticTreeGraph({
           transformedEdges: transformedData.edges.length 
         });
 
-        // Enhanced G6 configuration following design document
+        // Enhanced G6 configuration with improved node styling
         const graph = new Graph({
           container: containerRef.current!,
           width,
@@ -95,40 +101,61 @@ export function SemanticTreeGraph({
           layout: {
             type: layoutType === 'tree' ? 'dagre' : layoutType,
             rankdir: layoutType === 'tree' ? 'TB' : undefined,
-            nodesep: 40,
-            ranksep: 60,
+            nodesep: 50,
+            ranksep: 80,
             preventOverlap: true,
-            nodeSize: 35,
-            linkDistance: layoutType === 'force' ? 120 : undefined,
+            nodeSize: 50,
+            linkDistance: layoutType === 'force' ? 150 : undefined,
             center: layoutType === 'radial' ? [width / 2, height / 2] : undefined
           },
           node: {
             style: {
-              size: 25,
-              fill: '#4CAF50',
-              stroke: '#2E7D32',
-              strokeWidth: 3,
+              // Use design-compliant rectangular shapes
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              labelText: (d: any) => (d.data?.label as string) || d.id,
+              size: (d: any) => [d.data?.width || 120, d.data?.height || 60],
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              fill: (d: any) => d.data?.nodeColor || '#4CAF50',
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              stroke: (d: any) => d.data?.borderColor || '#2E7D32',
+              strokeWidth: 2,
+              // Enhanced label styling for rich content
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              labelText: (d: any) => {
+                if (d.data?.nodeType === 'channel') {
+                  return d.data?.fullContent || d.id;
+                }
+                return `@${d.data?.author || 'User'}\n${(d.data?.fullContent || '').substring(0, 50)}${(d.data?.fullContent || '').length > 50 ? '...' : ''}`;
+              },
               labelFill: '#f9fafb',
-              labelFontSize: 11,
-              labelFontWeight: 'bold',
-              labelMaxWidth: 140,
+              labelFontSize: 10,
+              labelFontWeight: 'normal',
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              labelMaxWidth: (d: any) => (d.data?.width || 120) - 20,
               labelWordWrap: true,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              labelWordWrapWidth: (d: any) => (d.data?.width || 120) - 20,
               radius: 8
             }
           },
           edge: {
             style: {
-              stroke: '#2196F3',
-              strokeWidth: 2,
-              strokeOpacity: 0.8
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              stroke: (d: any) => d.data?.strokeColor || '#2196F3',
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              strokeWidth: (d: any) => d.data?.strokeWidth || 2,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              strokeOpacity: (d: any) => d.data?.opacity || 0.8,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              lineDash: (d: any) => d.data?.isDashed ? [5, 5] : undefined,
+              // TODO: Add curve support for semantic links
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              curveConfig: (d: any) => d.data?.isCurved ? { curveOffset: 20 } : undefined
             }
           },
           behaviors: ['zoom-canvas', 'drag-canvas'],
         });
 
-        // Simple event handling to prevent TypeScript errors
+        // Enhanced event handling
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         graph.on('node:click', (evt: any) => {
           const nodeId = evt.itemId || evt.item?.id;
@@ -243,7 +270,7 @@ export function SemanticTreeGraph({
         </div>
       )}
 
-      {/* Control Panel */}
+      {/* Enhanced Control Panel */}
       <SemanticTreeControlPanel
         height={height}
         layoutType={layoutType}
@@ -251,6 +278,8 @@ export function SemanticTreeGraph({
         filters={filters}
         updateFilters={updateFilters}
         onResetView={resetView}
+        availableAuthors={availableAuthors}
+        onResetAllFilters={resetAllFilters}
       />
 
       {/* Graph container */}
