@@ -6,11 +6,26 @@ import type {
   HierarchicalData,
   FilterState
 } from '../types';
+import { createLogger } from '@/app/utils/logger';
+
+const logger = createLogger('hierarchicalProcessor.ts');
 
 export function processHierarchicalData(data: GraphData, filters?: Partial<FilterState>): HierarchicalData {
+  logger.info('Starting hierarchical data processing', { 
+    nodeCount: data.nodes.length, 
+    edgeCount: data.edges.length,
+    semanticEdges: data.edges.filter(e => e.data.edge_type === 'semantic_link').length
+  });
+
   // Convert raw data to visualization format
   const nodes = convertToVisualizationNodes(data);
   const edges = convertToVisualizationEdges(data);
+  
+  logger.info('Converted to visualization format', { 
+    visualNodes: nodes.length, 
+    visualEdges: edges.length,
+    semanticVisualizationEdges: edges.filter(e => e.type === 'semantic').length
+  });
   
   // Create unique user nodes from message authors
   const users = createUserNodes(data);
@@ -40,6 +55,14 @@ export function processHierarchicalData(data: GraphData, filters?: Partial<Filte
   if (!filters || filters.showUserMessageEdges !== false) {
     allEdges.push(...userMessageEdges);
   }
+  
+  logger.info('Hierarchical processing complete', { 
+    finalNodes: [...nodes, ...filteredUsers].length,
+    finalEdges: allEdges.length,
+    finalSemanticEdges: allEdges.filter(e => e.type === 'semantic').length,
+    userNodes: filteredUsers.length,
+    userMessageEdges: userMessageEdges.length
+  });
   
   return {
     users: filteredUsers,
@@ -191,17 +214,26 @@ function createUserMessageEdges(
 }
 
 function convertToVisualizationEdges(data: GraphData): VisualizationEdge[] {
-  return data.edges.map(edge => ({
+  const visualizationEdges = data.edges.map(edge => ({
     id: edge.id,
     source: edge.source,
     target: edge.target,
-    type: edge.data.edge_type === 'reply_to' ? 'reply' : 'semantic',
+    type: (edge.data.edge_type === 'reply_to' ? 'reply' : 'semantic') as 'reply' | 'semantic',
     strength: edge.data.strength || 1.0,
     metadata: {
       timestamp: undefined, // TODO: Add when timestamp data is available
       distance: undefined  // TODO: Add when distance data is available
     }
   }));
+  
+  logger.info('Edge conversion complete', { 
+    originalEdges: data.edges.length,
+    visualizationEdges: visualizationEdges.length,
+    semanticEdgesConverted: visualizationEdges.filter(e => e.type === 'semantic').length,
+    replyEdgesConverted: visualizationEdges.filter(e => e.type === 'reply').length
+  });
+  
+  return visualizationEdges;
 }
 
 function buildConversationThreads(

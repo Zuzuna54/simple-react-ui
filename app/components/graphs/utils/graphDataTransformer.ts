@@ -1,10 +1,25 @@
 import type { GraphData } from '@/app/types';
 import type { TransformedGraphData, HierarchicalData, FilterState } from '../types';
 import { processHierarchicalData } from './hierarchicalProcessor';
+import { createLogger } from '@/app/utils/logger';
+
+const logger = createLogger('graphDataTransformer.ts');
 
 export function transformDataForG6(filteredData: GraphData, filters?: Partial<FilterState>): TransformedGraphData {
+  logger.info('Starting G6 transformation', { 
+    inputNodes: filteredData.nodes.length, 
+    inputEdges: filteredData.edges.length,
+    inputSemanticEdges: filteredData.edges.filter(e => e.data.edge_type === 'semantic_link').length
+  });
+
   // First process data into hierarchical structure with filter support
   const hierarchicalData = processHierarchicalData(filteredData, filters);
+  
+  logger.info('Hierarchical data processed for G6', { 
+    hierarchicalNodes: hierarchicalData.nodes.length, 
+    hierarchicalEdges: hierarchicalData.edges.length,
+    hierarchicalSemanticEdges: hierarchicalData.edges.filter(e => e.type === 'semantic').length
+  });
   
   // Transform nodes with design-compliant styling
   const nodes = hierarchicalData.nodes.map(node => {
@@ -124,17 +139,27 @@ export function transformDataForG6(filteredData: GraphData, filters?: Partial<Fi
     };
   });
 
-  // Transform edges with enhanced styling
+  // Transform edges with enhanced styling and debug logging
   const edges = hierarchicalData.edges.map(edge => {
     const isSemanticLink = edge.type === 'semantic';
     const isUserMessage = edge.type === 'user_message';
     const isReply = edge.type === 'reply';
+    
+    if (isSemanticLink) {
+      logger.debug('Transforming semantic edge for G6', { 
+        edgeId: edge.id, 
+        source: edge.source, 
+        target: edge.target, 
+        strength: edge.strength 
+      });
+    }
     
     let strokeColor: string;
     let strokeWidth: number;
     let opacity: number;
     let isDashed: boolean;
     let isCurved: boolean;
+    let label: string;
     
     if (isUserMessage) {
       // User-to-message edges: distinct styling
@@ -143,6 +168,7 @@ export function transformDataForG6(filteredData: GraphData, filters?: Partial<Fi
       opacity = 0.7;
       isDashed = false;
       isCurved = false;
+      label = 'authored';
     } else if (isSemanticLink) {
       // Semantic links: purple, dashed, curved
       strokeColor = '#9C27B0';
@@ -150,6 +176,7 @@ export function transformDataForG6(filteredData: GraphData, filters?: Partial<Fi
       opacity = Math.max(0.4, edge.strength);
       isDashed = true;
       isCurved = true;
+      label = `similarity: ${(edge.strength * 100).toFixed(0)}%`;
     } else if (isReply) {
       // Reply chains: blue, solid, straight
       strokeColor = '#2196F3';
@@ -157,6 +184,7 @@ export function transformDataForG6(filteredData: GraphData, filters?: Partial<Fi
       opacity = 0.9;
       isDashed = false;
       isCurved = false;
+      label = 'reply';
     } else {
       // Fallback
       strokeColor = '#gray';
@@ -164,6 +192,7 @@ export function transformDataForG6(filteredData: GraphData, filters?: Partial<Fi
       opacity = 0.5;
       isDashed = false;
       isCurved = false;
+      label = '';
     }
     
     return {
@@ -177,9 +206,19 @@ export function transformDataForG6(filteredData: GraphData, filters?: Partial<Fi
         strokeWidth,
         opacity,
         isDashed,
-        isCurved
+        isCurved,
+        label // Add label for edge type display
       }
     };
+  });
+
+  const semanticEdgeCount = edges.filter(e => e.data.edgeType === 'semantic').length;
+  logger.info('G6 transformation complete', { 
+    outputNodes: nodes.length,
+    outputEdges: edges.length,
+    outputSemanticEdges: semanticEdgeCount,
+    userMessageEdges: edges.filter(e => e.data.edgeType === 'user_message').length,
+    replyEdges: edges.filter(e => e.data.edgeType === 'reply').length
   });
 
   return { nodes, edges };

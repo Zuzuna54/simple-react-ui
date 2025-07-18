@@ -9,6 +9,7 @@ import { SemanticTreeControlPanel } from './components/SemanticTreeControlPanel'
 import { SemanticTreeLegend } from './components/SemanticTreeLegend';
 import { SemanticTreeStats } from './components/SemanticTreeStats';
 import { SemanticTreeSelectedNode } from './components/SemanticTreeSelectedNode';
+import { SemanticTreeNodeModal } from './components/SemanticTreeNodeModal';
 import type { SemanticTreeGraphProps, LayoutType } from './types';
 
 const logger = createLogger('SemanticTreeGraph.tsx');
@@ -24,6 +25,7 @@ export function SemanticTreeGraph({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
   const [layoutType, setLayoutType] = useState<LayoutType>('tree');
 
   const { 
@@ -165,7 +167,8 @@ export function SemanticTreeGraph({
         
         logger.info('Creating enhanced semantic tree with G6', { 
           transformedNodes: transformedData.nodes.length, 
-          transformedEdges: transformedData.edges.length 
+          transformedEdges: transformedData.edges.length,
+          semanticEdges: transformedData.edges.filter(e => e.data.edgeType === 'semantic').length
         });
 
         // Enhanced G6 configuration with physics and animations
@@ -273,25 +276,148 @@ export function SemanticTreeGraph({
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               curveOffset: (d: any) => d.data?.isCurved ? 20 : 0,
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              endArrow: (d: any) => d.data?.isDashed ? false : true
+              endArrow: (d: any) => d.data?.isDashed ? false : true,
+              // Enhanced edge labels
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              labelText: (d: any) => d.data?.label || '',
+              labelFill: '#f1f5f9',
+              labelFontSize: 9,
+              labelFontWeight: 'normal',
+              labelBackgroundFill: 'rgba(15, 23, 42, 0.8)',
+              labelBackgroundPadding: [2, 4],
+              labelBackgroundRadius: 4,
+              labelBackgroundStroke: 'rgba(148, 163, 184, 0.3)',
+              labelBackgroundStrokeWidth: 1,
+              // Position labels in the middle of edges
+              labelPosition: 'middle'
             },
             state: {
               hover: {
                 strokeWidth: 4,
                 strokeOpacity: 1,
                 shadowColor: 'rgba(33, 150, 243, 0.3)',
-                shadowBlur: 8
+                shadowBlur: 8,
+                labelFontSize: 10,
+                labelBackgroundFill: 'rgba(15, 23, 42, 0.95)'
               }
             }
           },
           behaviors: getBehaviors(layoutType),
+          // Add tooltip plugin for hover metadata display
+          plugins: [
+            {
+              type: 'tooltip',
+              key: 'tooltip',
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              getContent: (evt: any, items: any) => {
+                if (!items || items.length === 0) return '';
+                
+                const item = items[0];
+                // Fix: Use proper G6 v5 API to access node data
+                // Debug logging to understand the data structure
+                logger.info('Tooltip item structure', { 
+                  item: typeof item,
+                  hasData: !!item.data,
+                  hasModel: !!item.model,
+                  keys: Object.keys(item || {})
+                });
+                
+                // Try multiple access patterns for G6 v5 compatibility
+                const data = item.data || item.model?.data || item._cfg?.model?.data || item;
+                
+                if (!data) {
+                  logger.warn('No data found in tooltip item', { item });
+                  return '';
+                }
+                
+                logger.info('Tooltip data accessed', { 
+                  nodeType: data.nodeType,
+                  author: data.author,
+                  hasFullContent: !!data.fullContent
+                });
+                
+                // Create tooltip content based on node type
+                if (data.nodeType === 'user') {
+                  return `
+                    <div style="
+                      background: rgba(15, 23, 42, 0.95);
+                      border: 1px solid rgba(139, 92, 246, 0.4);
+                      border-radius: 8px;
+                      padding: 12px;
+                      color: white;
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                      font-size: 12px;
+                      line-height: 1.4;
+                      max-width: 250px;
+                      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                    ">
+                      <div style="font-weight: bold; color: #a5b4fc; margin-bottom: 8px;">
+                        👤 User: ${data.userHandle || data.author}
+                      </div>
+                      <div style="margin-bottom: 4px;">
+                        📊 Messages: <span style="color: #60a5fa;">${data.messageCount || 0}</span>
+                      </div>
+                      <div style="margin-bottom: 4px;">
+                        🔗 Connections: <span style="color: #34d399;">${data.replyCount + data.semanticConnections}</span>
+                      </div>
+                      <div style="margin-bottom: 4px;">
+                        ⭐ Importance: <span style="color: #fbbf24;">${data.importance}/3</span>
+                      </div>
+                    </div>
+                  `;
+                } else if (data.nodeType === 'message') {
+                  const contentPreview = data.fullContent && data.fullContent.length > 80 
+                    ? data.fullContent.substring(0, 80) + '...' 
+                    : data.fullContent || 'No content';
+                  
+                  return `
+                    <div style="
+                      background: rgba(15, 23, 42, 0.95);
+                      border: 1px solid rgba(139, 92, 246, 0.4);
+                      border-radius: 8px;
+                      padding: 12px;
+                      color: white;
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                      font-size: 12px;
+                      line-height: 1.4;
+                      max-width: 280px;
+                      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                    ">
+                      <div style="font-weight: bold; color: #a5b4fc; margin-bottom: 8px;">
+                        💬 ${data.messageType === 'contextual' ? 'Contextual' : 'Noise'} Message
+                      </div>
+                      <div style="margin-bottom: 6px;">
+                        👤 <span style="color: #60a5fa;">@${data.author}</span>
+                      </div>
+                      <div style="margin-bottom: 6px; font-size: 11px; color: #94a3b8;">
+                        🕒 ${data.timestamp}
+                      </div>
+                      <div style="margin-bottom: 8px; padding: 6px; background: rgba(30, 41, 59, 0.6); border-radius: 4px; font-size: 11px; color: #e2e8f0;">
+                        ${contentPreview}
+                      </div>
+                      <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                        <span>🔗 Replies: <span style="color: #60a5fa;">${data.replyCount}</span></span>
+                        <span>🕸️ Semantic: <span style="color: #c084fc;">${data.semanticConnections}</span></span>
+                      </div>
+                    </div>
+                  `;
+                }
+                
+                return '';
+              },
+              style: {
+                position: 'absolute',
+                zIndex: 1000
+              }
+            }
+          ],
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           animation: true as any, // Simplified animation config for G6 v5 compatibility
           // Auto-fit configuration
           autoFit: 'view'
         });
 
-        // Enhanced event handling with animations
+        // Enhanced event handling with animations and modal integration
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         graph.on('node:click', (evt: any) => {
           const nodeId = evt.itemId || evt.item?.id;
@@ -307,6 +433,7 @@ export function SemanticTreeGraph({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (graph as any).setItemState?.(nodeId, 'selected', true);
             setSelectedNode(nodeId);
+            setShowModal(true); // Open modal on node click
             logger.info('Node selected in semantic tree', { nodeId });
           }
         });
@@ -412,6 +539,11 @@ export function SemanticTreeGraph({
     }
   }, [layoutType]);
 
+  // Modal close handler
+  const closeModal = useCallback(() => {
+    setShowModal(false);
+  }, []);
+
   if (error) {
     return (
       <div className={`relative ${className}`} style={{ width, height }}>
@@ -493,8 +625,17 @@ export function SemanticTreeGraph({
       {/* Stats */}
       <SemanticTreeStats filteredData={filteredData} />
 
-      {/* Selected Node Info */}
+      {/* Selected Node Info (legacy - keeping for compatibility) */}
       <SemanticTreeSelectedNode selectedNode={selectedNode} data={data} />
+
+      {/* Enhanced Node Modal */}
+      {showModal && (
+        <SemanticTreeNodeModal 
+          selectedNode={selectedNode} 
+          data={data} 
+          onClose={closeModal}
+        />
+      )}
     </div>
   );
 } 

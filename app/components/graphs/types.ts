@@ -114,6 +114,7 @@ export interface TransformedEdge {
     opacity: number;
     isDashed: boolean;
     isCurved: boolean;
+    label: string; // New: edge label for relationship type display
   };
 }
 

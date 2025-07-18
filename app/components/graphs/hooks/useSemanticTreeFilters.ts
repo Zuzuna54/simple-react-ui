@@ -1,6 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { GraphData } from '@/app/types';
 import type { FilterState } from '../types';
+import { createLogger } from '@/app/utils/logger';
+
+const logger = createLogger('useSemanticTreeFilters.ts');
 
 export function useSemanticTreeFilters(data: GraphData) {
   const [filters, setFilters] = useState<FilterState>({
@@ -31,6 +34,13 @@ export function useSemanticTreeFilters(data: GraphData) {
 
   // Filter and transform data based on current filters
   const filteredData = useMemo(() => {
+    logger.info('Starting data filtering', { 
+      totalNodes: data.nodes.length, 
+      totalEdges: data.edges.length,
+      semanticEdgesInRaw: data.edges.filter(e => e.data.edge_type === 'semantic_link').length,
+      filters 
+    });
+
     const filteredNodes = data.nodes.filter(node => {
       // Skip legacy channel nodes (if any exist)
       if (node.type === 'channel') return false;
@@ -91,20 +101,51 @@ export function useSemanticTreeFilters(data: GraphData) {
 
     const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
     
+    // Enhanced edge filtering with debug logging
+    const initialSemanticEdges = data.edges.filter(e => e.data.edge_type === 'semantic_link');
+    logger.info('Semantic edges before filtering', { count: initialSemanticEdges.length });
+    
     const filteredEdges = data.edges.filter(edge => {
       // Only include edges between visible nodes
-      if (!filteredNodeIds.has(edge.source) || !filteredNodeIds.has(edge.target)) return false;
+      if (!filteredNodeIds.has(edge.source) || !filteredNodeIds.has(edge.target)) {
+        if (edge.data.edge_type === 'semantic_link') {
+          logger.warn('Semantic edge filtered out due to invisible nodes', { 
+            edgeId: edge.id, 
+            source: edge.source, 
+            target: edge.target,
+            sourceVisible: filteredNodeIds.has(edge.source),
+            targetVisible: filteredNodeIds.has(edge.target)
+          });
+        }
+        return false;
+      }
       
       // Filter by edge type
       if (!filters.showReplyEdges && edge.data.edge_type === 'reply_to') return false;
-      if (!filters.showSemanticEdges && edge.data.edge_type === 'semantic_link') return false;
+      if (!filters.showSemanticEdges && edge.data.edge_type === 'semantic_link') {
+        logger.info('Semantic edge filtered out by showSemanticEdges flag', { edgeId: edge.id });
+        return false;
+      }
       
       // Filter semantic edges by strength threshold
       if (edge.data.edge_type === 'semantic_link' && edge.data.strength < filters.semanticThreshold) {
+        logger.info('Semantic edge filtered out by threshold', { 
+          edgeId: edge.id, 
+          strength: edge.data.strength, 
+          threshold: filters.semanticThreshold 
+        });
         return false;
       }
       
       return true;
+    });
+
+    const finalSemanticEdges = filteredEdges.filter(e => e.data.edge_type === 'semantic_link');
+    logger.info('Filtering complete', { 
+      filteredNodes: filteredNodes.length,
+      filteredEdges: filteredEdges.length,
+      semanticEdgesAfter: finalSemanticEdges.length,
+      replyEdges: filteredEdges.filter(e => e.data.edge_type === 'reply_to').length
     });
 
     return { nodes: filteredNodes, edges: filteredEdges };
@@ -112,6 +153,7 @@ export function useSemanticTreeFilters(data: GraphData) {
 
   // Filter update handler
   const updateFilters = useCallback((newFilters: Partial<FilterState>) => {
+    logger.info('Updating filters', { newFilters });
     setFilters(prev => ({ ...prev, ...newFilters }));
   }, []);
 
@@ -129,6 +171,7 @@ export function useSemanticTreeFilters(data: GraphData) {
   }, [updateFilters]);
 
   const resetAllFilters = useCallback(() => {
+    logger.info('Resetting all filters');
     setFilters({
       showContextual: true,
       showNoise: true,
