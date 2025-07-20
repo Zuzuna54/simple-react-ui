@@ -523,6 +523,7 @@ export function SemanticTreeGraph({
       }
       initializingRef.current = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataHash, width, height, layoutType, filteredData, getPhysicsConfig, getBehaviors]);
 
   const resetView = useCallback(() => {
@@ -534,10 +535,21 @@ export function SemanticTreeGraph({
   // Add a restart physics simulation function for force layout
   const restartPhysics = useCallback(() => {
     if (graphRef.current && layoutType === 'force') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (graphRef.current as any).getLayoutInstance()?.restart();
+      // For G6 v5, restart the layout by calling updateLayout
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (graphRef.current as any).updateLayout?.(getPhysicsConfig(layoutType));
+      } catch (error) {
+        logger.warn('Failed to restart physics simulation', error);
+        // Alternative approach: re-render the graph to restart simulation
+        try {
+          graphRef.current.render();
+        } catch (renderError) {
+          logger.warn('Failed to re-render graph', renderError);
+        }
+      }
     }
-  }, [layoutType]);
+  }, [layoutType, getPhysicsConfig]);
 
   // Modal close handler
   const closeModal = useCallback(() => {

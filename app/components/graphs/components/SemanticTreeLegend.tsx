@@ -1,138 +1,122 @@
 'use client';
 
 import React from 'react';
+import { User, MessageCircle, AlertTriangle, Minus, MoreHorizontal } from 'lucide-react';
+import { ModernCard } from '@/app/components/ui/modern-controls';
 
 export function SemanticTreeLegend() {
   return (
-    <div 
-      className="absolute top-6 right-6 z-10 group"
-      style={{ width: '280px' }}
-    >
-      {/* Modern glassmorphism container */}
-      <div 
-        className="rounded-3xl shadow-2xl backdrop-blur-xl border overflow-hidden"
-        style={{ 
-          background: 'rgba(15, 23, 42, 0.85)',
-          borderColor: 'rgba(255, 255, 255, 0.1)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05)'
-        }}
-      >
-        {/* Animated gradient overlay */}
-        <div 
-          className="absolute inset-0 opacity-30 pointer-events-none"
-          style={{
-            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 50%, rgba(16, 185, 129, 0.1) 100%)',
-            animation: 'legend-glow 6s ease-in-out infinite alternate'
-          }}
-        />
+    <div className="absolute top-6 right-6 z-10 w-64">
+      <ModernCard className="p-5">
+        <div className="flex items-center gap-2 mb-6">
+          <div className="p-2 bg-slate-700/50 rounded-lg">
+            <MoreHorizontal size={16} className="text-slate-400" />
+          </div>
+          <h3 className="text-sm font-semibold text-white tracking-tight">
+            Legend
+          </h3>
+        </div>
         
-        <div className="relative z-10 p-6 space-y-6">
-          {/* Enhanced Header */}
-          <div className="border-b border-white/10 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
-                <span className="text-white text-sm font-bold">📊</span>
+        <div className="space-y-6">
+          {/* Nodes */}
+          <div>
+            <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">
+              Node Types
+            </h4>
+            <div className="space-y-2">
+              <div className="group flex items-center gap-3 p-2 rounded-lg transition-all duration-200 hover:bg-slate-800/30">
+                <div className="flex items-center justify-center w-8 h-8 bg-indigo-500/20 rounded-lg border border-indigo-500/30">
+                  <User size={14} className="text-indigo-400" />
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                    User
+                  </span>
+                  <p className="text-xs text-slate-500">
+                    Conversation participants
+                  </p>
+                </div>
               </div>
-              <h3 className="text-xl font-bold text-white tracking-tight">
-                Legend
-              </h3>
+              
+              <div className="group flex items-center gap-3 p-2 rounded-lg transition-all duration-200 hover:bg-slate-800/30">
+                <div className="flex items-center justify-center w-8 h-8 bg-green-500/20 rounded-lg border border-green-500/30">
+                  <MessageCircle size={14} className="text-green-400" />
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                    Contextual
+                  </span>
+                  <p className="text-xs text-slate-500">
+                    Relevant messages
+                  </p>
+                </div>
+              </div>
+              
+              <div className="group flex items-center gap-3 p-2 rounded-lg transition-all duration-200 hover:bg-slate-800/30">
+                <div className="flex items-center justify-center w-8 h-8 bg-amber-500/20 rounded-lg border border-amber-500/30">
+                  <AlertTriangle size={14} className="text-amber-400" />
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                    Noise
+                  </span>
+                  <p className="text-xs text-slate-500">
+                    Off-topic content
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
           
-          <div className="space-y-6">
-            {/* Enhanced Node Types Section */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-slate-200 mb-4 uppercase tracking-wide flex items-center gap-2">
-                <span className="text-cyan-400">⬢</span>
-                Node Types
-              </h4>
-              <div className="space-y-3">
-                {/* User Node */}
-                <div className="group flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-white/5 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="relative z-10 w-6 h-6 rounded-full bg-indigo-500 border-2 border-indigo-300/30 shadow-lg flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:shadow-xl" 
-                       style={{ boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)' }}></div>
-                  <span className="relative z-10 text-sm text-slate-200 font-medium group-hover:text-white transition-colors duration-200">User</span>
-                </div>
-                
-                {/* Contextual Message */}
-                <div className="group flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-white/5 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="relative z-10 w-5 h-4 rounded-lg bg-green-500 border-2 border-green-300/30 shadow-lg flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:shadow-xl"
-                       style={{ boxShadow: '0 4px 12px rgba(34, 197, 94, 0.4)' }}></div>
-                  <span className="relative z-10 text-sm text-slate-200 font-medium group-hover:text-white transition-colors duration-200">Contextual Message</span>
-                </div>
-                
-                {/* Noise Message */}
-                <div className="group flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-white/5 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="relative z-10 w-5 h-4 rounded-lg bg-amber-500 border-2 border-amber-300/30 shadow-lg flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:shadow-xl"
-                       style={{ boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)' }}></div>
-                  <span className="relative z-10 text-sm text-slate-200 font-medium group-hover:text-white transition-colors duration-200">Noise Message</span>
+          {/* Edges */}
+          <div>
+            <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">
+              Relationships
+            </h4>
+            <div className="space-y-2">
+              <div className="group flex items-center gap-3 p-2 rounded-lg transition-all duration-200 hover:bg-slate-800/30">
+                <div className="w-8 h-0.5 bg-indigo-400 rounded-full" />
+                <div>
+                  <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                    User-Message
+                  </span>
+                  <p className="text-xs text-slate-500">
+                    Authorship links
+                  </p>
                 </div>
               </div>
-            </div>
-            
-            {/* Enhanced Edge Types Section */}
-            <div className="pt-2 border-t border-white/10">
-              <h4 className="text-sm font-semibold text-slate-200 mb-4 uppercase tracking-wide flex items-center gap-2">
-                <span className="text-pink-400">⚡</span>
-                Edge Types
-              </h4>
-              <div className="space-y-3">
-                {/* User-Message Edge */}
-                <div className="group flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-white/5 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="relative z-10 w-12 h-0.5 bg-indigo-500 rounded-full shadow-lg flex-shrink-0 transition-transform duration-300 group-hover:scale-110"
-                       style={{ boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)' }}></div>
-                  <span className="relative z-10 text-sm text-slate-200 font-medium group-hover:text-white transition-colors duration-200">User-Message</span>
-                </div>
-                
-                {/* Reply Chain Edge */}
-                <div className="group flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-white/5 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="relative z-10 w-12 h-0.5 bg-blue-500 rounded-full shadow-lg flex-shrink-0 transition-transform duration-300 group-hover:scale-110"
-                       style={{ boxShadow: '0 2px 8px rgba(59, 130, 246, 0.4)' }}></div>
-                  <span className="relative z-10 text-sm text-slate-200 font-medium group-hover:text-white transition-colors duration-200">Reply Chain</span>
-                </div>
-                
-                {/* Semantic Link Edge */}
-                <div className="group flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all duration-300 hover:bg-white/5 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="relative z-10 w-12 h-0.5 bg-purple-500 rounded-full shadow-lg flex-shrink-0 transition-transform duration-300 group-hover:scale-110 relative"
-                       style={{ boxShadow: '0 2px 8px rgba(147, 51, 234, 0.4)' }}>
-                    <div className="absolute inset-0 border-t-2 border-dashed border-purple-300 opacity-70 rounded-full"></div>
-                  </div>
-                  <span className="relative z-10 text-sm text-slate-200 font-medium group-hover:text-white transition-colors duration-200">Semantic Link</span>
+              
+              <div className="group flex items-center gap-3 p-2 rounded-lg transition-all duration-200 hover:bg-slate-800/30">
+                <div className="w-8 h-0.5 bg-blue-400 rounded-full" />
+                <div>
+                  <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                    Reply
+                  </span>
+                  <p className="text-xs text-slate-500">
+                    Response chains
+                  </p>
                 </div>
               </div>
-            </div>
-
-            {/* Interactive Information Panel */}
-            <div className="pt-4 border-t border-white/10">
-              <div className="p-4 bg-gradient-to-r from-white/5 to-white/10 rounded-2xl border border-white/10 backdrop-blur-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-sm">💡</span>
-                  <span className="text-xs text-slate-300 font-medium">Quick Tip</span>
+              
+              <div className="group flex items-center gap-3 p-2 rounded-lg transition-all duration-200 hover:bg-slate-800/30">
+                <div className="flex items-center gap-1">
+                  <Minus size={8} className="text-purple-400" />
+                  <Minus size={8} className="text-purple-400" />
+                  <Minus size={8} className="text-purple-400" />
                 </div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Hover over nodes to see detailed information. Click nodes to open detailed view with full metadata.
-                </p>
+                <div>
+                  <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                    Semantic
+                  </span>
+                  <p className="text-xs text-slate-500">
+                    Similar content
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* CSS animations */}
-      <style jsx>{`
-        @keyframes legend-glow {
-          0% { opacity: 0.3; }
-          100% { opacity: 0.6; }
-        }
-      `}</style>
+      </ModernCard>
     </div>
   );
 } 
